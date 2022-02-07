@@ -12,6 +12,9 @@ export default {
   output: [
     { format: 'iife', name: 'Space', dir: 'dist', sourcemap: true }
   ],
+  watch: {
+    clearScreen: false
+  },
   plugins: [
     nodeResolve(),
     typescript(),
