@@ -44,6 +44,35 @@ abstract class IMetro {
 
 }
 
+class Anim {
+
+  quads: Array<Quad>;
+
+  frame: number 
+
+  get quad(): Quad {
+    return this.quads[this.frame]
+  }
+
+  constructor(readonly image: HTMLImageElement,
+    readonly f_x: number,
+    readonly f_y: number, 
+    readonly f_w: number,
+    readonly f_h: number) {
+
+    this.quads = [0, 1, 2, 3, 4, 5].map((_, i) =>
+      Quad.make(image, f_x + i * f_w, f_y, f_w, f_h))
+
+    this.frame = 0
+  }
+
+
+  draw(play: Play, x: number, y: number, facing_x: number) {
+    play.draw(this.quad, x + (facing_x < 0 ? this.f_w : 0), y, 0, facing_x)
+  }
+
+}
+
 function appr(value: number, target: number, by: number) {
   if (value < target) {
     return Math.min(value + by, target)
@@ -247,6 +276,10 @@ class Sensor {
 
 class AllMetro extends IMetro {
 
+
+  anim!: Anim
+
+
   elapsed!: number
 
   gravity!: Vec2
@@ -256,7 +289,32 @@ class AllMetro extends IMetro {
 
   sensor!: Sensor
 
+  sensor_l!: Sensor
+  sensor_lo!: Sensor
+  sensor_h!: Sensor
+  sensor_ho!: Sensor
+
+  facing_x: number
+
+  get sensor_f(): Sensor {
+    return this.facing_x < 0 ? this.sensor_h: this.sensor_l
+  }
+
+  get sensor_fo(): Sensor {
+    return this.facing_x < 0 ? this.sensor_ho : this.sensor_lo
+  }
+
+  get sensor_b(): Sensor {
+    return this.facing_x < 0 ? this.sensor_l : this.sensor_h
+  }
+
+  get sensor_bo(): Sensor {
+    return this.facing_x < 0 ? this.sensor_lo : this.sensor_ho
+  }
+
   init() {
+
+    this.anim = new Anim(this.a, 0, 48, 12, 20)
 
     this.elapsed = 0
 
@@ -277,13 +335,26 @@ class AllMetro extends IMetro {
       this.grid.set(i+66, 35, true)
       this.grid.set(i+66, 34, true)
       this.grid.set(i+66, 33, true)
+
+      if (i < 10) {
+        this.grid.set(i, 38, true)
+        this.grid.set(i + 2, 39, true)
+        this.grid.set(i + 4, 40, true)
+      }
     }
 
-    this.body = body_make({air_friction: 0.8})
+    this.body = body_make({y0: 30 * 4, y: 30 * 4, air_friction: 0.8})
 
     this.align = new BodyAlign(this.body, 4)
 
-    this.sensor = new Sensor(this.grid, this.body, 4, 20)
+    this.sensor = new Sensor(this.grid, this.body, 6, 20)
+
+    this.sensor_l = new Sensor(this.grid, this.align, 9, 20)
+    this.sensor_lo = new Sensor(this.grid, this.align, 12, 20)
+
+    this.sensor_h = new Sensor(this.grid, this.align, 3, 20)
+    this.sensor_ho = new Sensor(this.grid, this.align, 0, 20)
+
 
   }
 
@@ -296,8 +367,10 @@ class AllMetro extends IMetro {
     let i_x = 0
     if (this.input.btn('right') !== 0) {
       i_x = 1
+      this.facing_x = 1
     } else if (this.input.btn('left') !== 0) {
       i_x = -1
+      this.facing_x = -1
     }
 
     body.force.x += i_x * 0.001
@@ -305,9 +378,6 @@ class AllMetro extends IMetro {
     if (this.sensor.down > 0) {
       body.force.x += gravity.x
       body.force.y += gravity.y
-      if (this.sensor.down < 4) {
-        //this.align.force_smooth_y()
-      }
     }
 
     body_update(body, dt, dt0)
@@ -322,6 +392,24 @@ class AllMetro extends IMetro {
     }
 
     this.align.update(dt, dt0)
+
+    let { sensor_f, sensor_fo, sensor_bo, sensor_b } = this
+
+    if (sensor_f.down > 0 && sensor_bo.down === 0) {
+      this.anim.frame = 3
+    } else if (sensor_f.down === 0 && sensor_bo.down < 0) {
+      this.anim.frame = 4
+    } else if (sensor_f.down > 0 && sensor_bo.down < 0) {
+      this.anim.frame = 4
+    } else if (sensor_f.down < 0 && sensor_fo.down < 0) {
+      this.anim.frame = 2
+    } else if (sensor_bo.down > 0) {
+      this.anim.frame = 1
+    } else {
+      this.anim.frame = 0
+    }
+
+    console.log(this.anim.frame)
   }
 
   draw() {
@@ -338,14 +426,15 @@ class AllMetro extends IMetro {
 
     let { x, y } = this.align
 
-    this.play.draw(this.q_player, x, y, 0, 1, 1)
+    //this.play.draw(this.q_player, x, y)
+    this.anim.draw(this.play, x, y, this.facing_x)
 
     let { down } = this.sensor
 
     if (down < 0) {
       this.play.draw(this.q_red, this.sensor.x, this.sensor.y + down, 0, 1, -down)
     } else {
-      this.play.draw(this.q_red, this.sensor.x, this.sensor.y, 0, 1, down)
+      this.play.draw(this.q_red, this.sensor.x, this.sensor.y - 2, 0, 1, down + 2)
     }
   }
 }
@@ -374,16 +463,22 @@ export default function app(element: HTMLElement) {
       max_dt = fixed_dt * 2,
       dt0 = fixed_dt
 
+    let elapsed = 0
     function step(timestamp: number) {
 
       let dt = timestamp0 ? timestamp - timestamp0 : fixed_dt
-
 
       dt = Math.max(min_dt, dt)
       dt = Math.min(max_dt, dt)
 
       input.update(dt, dt0)
-      metro.update(dt, dt0)
+      if (input.btn('x') > 0) {
+        if (elapsed++ % 24 === 0) {
+          metro.update(dt, dt0)
+        }
+      } else {
+        metro.update(dt, dt0)
+      }
       metro.draw()
       play.flush()
       dt0 = dt 
