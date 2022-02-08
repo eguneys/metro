@@ -51,6 +51,8 @@ function merge(base: any, extend: any) {
   return extend
 }
 
+
+/* Verlet https://stackoverflow.com/a/28061393/3994249 */
 export function body_update(body: Body, dt: number, dt0: number) {
 
   let { force, mass } = body
@@ -73,6 +75,8 @@ export function body_update(body: Body, dt: number, dt0: number) {
     new_y = y + new_vy
 
 
+  body.x0 = new_x0
+  body.y0 = new_y0
   body.x = new_x
   body.y = new_y
   body.vx = new_vx
