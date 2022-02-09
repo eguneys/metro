@@ -4,7 +4,10 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "rollup --config --watch"
+    "clean": "rm -rf dist && rm -f dist.zip",
+    "dev": "yarn -s clean && rollup --config --watch",
+    "prod": "yarn -s clean && rollup --config --config-prod",
+    "dist": "yarn prod && zip -r dist.zip -j dist -9 && echo `ls -lh dist.zip | cut -f5 -d ' '` bytes."
   },
   "devDependencies": {
     "@rollup/plugin-image": "^2.1.1",
@@ -14,6 +17,7 @@
     "rollup-plugin-generate-html-template": "^1.7.0",
     "rollup-plugin-livereload": "^2.0.5",
     "rollup-plugin-serve": "^1.1.0",
+    "rollup-plugin-terser": "^7.0.2",
     "tslib": "^2.3.1",
     "typescript": "^4.5.5"
   }
