@@ -60,7 +60,7 @@ class Anim {
     readonly f_w: number,
     readonly f_h: number) {
 
-    this.quads = [0, 1, 2, 3, 4, 5].map((_, i) =>
+    this.quads = [0, 1, 2, 3, 4, 5, 6, 7].map((_, i) =>
       Quad.make(image, f_x + i * f_w, f_y, f_w, f_h))
 
     this.frame = 0
@@ -176,6 +176,7 @@ class BodyAlign {
 
     this.moving_y0 = this.moving_y
     this.ialign_y = 0
+    this.ialign_y_time = ticks.five
   }
 
   force_smooth_y(time: number = ticks.five) {
@@ -349,6 +350,7 @@ class AllMetro extends IMetro {
 
 
   anim!: Anim
+  anim_arms!: Anim
 
 
   elapsed!: number
@@ -361,6 +363,9 @@ class AllMetro extends IMetro {
   sensor!: Sensor
   sensor_right!: Sensor
   sensor_up!: Sensor
+
+  sensor_up_hung!: Sensor
+  sensor_up_hung_pre!: Sensor
 
   sensor_l!: Sensor
   sensor_lo!: Sensor
@@ -389,6 +394,7 @@ class AllMetro extends IMetro {
   init() {
 
     this.anim = new Anim(this.a, 0, 48, 12, 20)
+    this.anim_arms = new Anim(this.a, 64, 48, 12, 20)
 
     this.elapsed = 0
 
@@ -449,6 +455,8 @@ class AllMetro extends IMetro {
 
     this.sensor_up_hung = new Sensor(this.grid, this.body, 6, -8)
 
+
+    this.sensor_up_hung_pre = new Sensor(this.grid, this.align, 11, -12)
 
     this.sensor_l = new Sensor(this.grid, this.align, 9, 20)
     this.sensor_lo = new Sensor(this.grid, this.align, 12, 20)
@@ -543,7 +551,7 @@ class AllMetro extends IMetro {
       if (this.t_ledge_up0 === 0) {
         body.y -= 8 + 20 
         body.y0 = body.y
-        this.align.force_smooth_y(ticks.lengths) 
+        this.align.force_smooth_y(ticks.half) 
       }
     }
 
@@ -567,6 +575,21 @@ class AllMetro extends IMetro {
     }
 
     this.align.update(dt, dt0)
+
+    if (this.sensor_up_hung_pre.down < 0) {
+      this.anim_arms.frame = 1
+    } else if (this.sensor_up_hung_pre.down < 2) {
+      this.anim_arms.frame = 2
+    } else if (this.sensor_up_hung_pre.down < 6) {
+      this.anim_arms.frame = 3
+    } else if (this.sensor_up_hung_pre.down < 12) {
+      this.anim_arms.frame = 4
+    } else if (this.sensor_up_hung_pre.down < 16) {
+      this.anim_arms.frame = 5
+    } else {
+      this.anim_arms.frame = 0 
+    }
+
 
     let { sensor_f, sensor_fo, sensor_bo, sensor_b } = this
 
@@ -602,12 +625,24 @@ class AllMetro extends IMetro {
     //this.play.draw(this.q_player, x, y)
     this.anim.draw(this.play, x, y, this.facing_x)
 
+    let arms_off_y = 0
+    if (this.anim_arms.frame === 3) {
+      arms_off_y = -8
+    } else if (this.anim_arms.frame === 2) {
+      arms_off_y = -4
+    } else if (this.anim_arms.frame === 4) {
+      arms_off_y = -12
+    } else if (this.anim_arms.frame === 5) {
+      arms_off_y = -8
+    }
+    this.anim_arms.draw(this.play, x, y + arms_off_y, this.facing_x)
+
     //this.sensor_draw_up(this.sensor_up)
     this.sensor_draw_down(this.sensor)
     this.sensor_draw_right(this.sensor_right)
 
     
-    this.sensor_draw_down(this.sensor_up_hung)
+    this.sensor_draw_down(this.sensor_up_hung_pre)
 
   }
 
