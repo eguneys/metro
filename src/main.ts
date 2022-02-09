@@ -234,6 +234,40 @@ class Sensor {
     return Math.floor(this.body.y + this.oy)
   }
 
+
+  get right_extend() {
+    let { x, y, size } = this
+
+    for (let i = 1; i < size; i++) {
+      let tile = this.grid.get_world(x + i, y)
+      if (tile) {
+        return i
+      }
+    }
+    return size 
+  }
+
+  get right_regress() {
+    let { x, y, size } = this
+
+    for (let i = 1; i < size; i++) {
+      let tile = this.grid.get_world(x - i, y)
+      if (!tile) {
+        return 1-i
+      }
+    }
+    return -size 
+  }
+
+  get right() {
+    let { x, y } = this
+    let tile = this.grid.get_world(x, y)
+    if (!tile) {
+      return this.right_extend
+    }
+    return this.right_regress
+  }
+
   get down_extend() {
     let { x, y, size } = this
 
@@ -289,12 +323,15 @@ class AllMetro extends IMetro {
 
   sensor!: Sensor
 
+  sensor_right!: Sensor
+
   sensor_l!: Sensor
   sensor_lo!: Sensor
   sensor_h!: Sensor
   sensor_ho!: Sensor
 
-  facing_x: number
+
+  facing_x!: number
 
   get sensor_f(): Sensor {
     return this.facing_x < 0 ? this.sensor_h: this.sensor_l
@@ -329,18 +366,26 @@ class AllMetro extends IMetro {
       this.grid.set(i+42, 39, true)
       this.grid.set(i+44, 38, true)
 
-      this.grid.set(i+60, 37, true)
-      this.grid.set(i+60, 36, true)
+      this.grid.set(i+60, 30, true)
+      this.grid.set(i+60, 29, true)
 
-      this.grid.set(i+66, 35, true)
-      this.grid.set(i+66, 34, true)
-      this.grid.set(i+66, 33, true)
+      this.grid.set(i+66, 28, true)
+      this.grid.set(i+66, 27, true)
+      this.grid.set(i+66, 26, true)
 
       if (i < 10) {
         this.grid.set(i, 38, true)
         this.grid.set(i + 2, 39, true)
         this.grid.set(i + 4, 40, true)
+
+
+        this.grid.set(54, 31+i, true)
+        this.grid.set(i+54, 31, true)
       }
+    }
+
+    for (let i = 0; i < 4; i++) {
+      this.grid.set(6 + i, 30, true)
     }
 
     this.body = body_make({y0: 30 * 4, y: 30 * 4, air_friction: 0.8})
@@ -356,7 +401,11 @@ class AllMetro extends IMetro {
     this.sensor_ho = new Sensor(this.grid, this.align, 0, 20)
 
 
+    this.sensor_right = new Sensor(this.grid, this.align, 12, 10)
+
   }
+
+  t_jump: number = 0
 
   update(dt: number, dt0: number) {
 
@@ -373,17 +422,51 @@ class AllMetro extends IMetro {
       this.facing_x = -1
     }
 
-    body.force.x += i_x * 0.001
+
+    let i_y = 0
+    if (this.input.btn('c') !== 0) {
+      i_y = 1
+    }
+
+    if (this.sensor.down === 0) {
+      if (this.t_jump === 0 && i_y > 0) {
+        this.t_jump = ticks.lengths
+      }
+    }
+
+    if (this.t_jump > 0) {
+      body.force.y -= i_y * 0.02 * (this.t_jump / ticks.lengths) * (1 - this.t_jump / ticks.lengths)
+    }
+
+    this.t_jump = appr(this.t_jump, 0, dt)
+
+    if (this.sensor_right.right > 0) {
+      body.force.x += i_x * 0.001
+    } else {
+      if (i_x < 0) {
+        body.force.x += i_x * 0.001
+      }
+    }
 
     if (this.sensor.down > 0) {
       body.force.x += gravity.x
-      body.force.y += gravity.y
+      if (body.vy > 0) {
+        body.force.y += gravity.y * 3
+      } else {
+        body.force.y += gravity.y
+      }
     }
 
     body_update(body, dt, dt0)
     
     body.force.x = 0
     body.force.y = 0
+
+    if (this.sensor_right.right < 0) {
+      body.x += this.sensor_right.right
+      body.x0 = body.x
+      //this.align.force_smooth_x()
+    }
 
     if (this.sensor.down < 0) {
       body.y += this.sensor.down
@@ -408,8 +491,6 @@ class AllMetro extends IMetro {
     } else {
       this.anim.frame = 0
     }
-
-    console.log(this.anim.frame)
   }
 
   draw() {
@@ -435,6 +516,15 @@ class AllMetro extends IMetro {
       this.play.draw(this.q_red, this.sensor.x, this.sensor.y + down, 0, 1, -down)
     } else {
       this.play.draw(this.q_red, this.sensor.x, this.sensor.y - 2, 0, 1, down + 2)
+    }
+
+    let { right } = this.sensor_right
+
+
+    if (right < 0) {
+      this.play.draw(this.q_red, this.sensor_right.x + right, this.sensor_right.y, 0, -right, 1)
+    } else {
+      this.play.draw(this.q_red, this.sensor_right.x - 2, this.sensor_right.y, 0, right + 2, 1)
     }
   }
 }
@@ -472,6 +562,11 @@ export default function app(element: HTMLElement) {
       dt = Math.min(max_dt, dt)
 
       input.update(dt, dt0)
+
+      if (input.btn('z') > 0) {
+        metro.init()
+      }
+
       if (input.btn('x') > 0) {
         if (elapsed++ % 24 === 0) {
           metro.update(dt, dt0)

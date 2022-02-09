@@ -57,6 +57,9 @@ export default class Input {
         case 'c':
           press('c');
           break;
+        case 'z':
+          press('z')
+          break;
       }
     });
 
@@ -80,6 +83,9 @@ export default class Input {
         case 'x':
           release('x');
           break;      
+        case 'z':
+          release('z');
+          break
       }
     });
   }
