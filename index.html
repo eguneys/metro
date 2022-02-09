@@ -1,0 +1,36 @@
+<html>
+  <head>
+    <link rel='icon' href='/'>
+    <style>
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #ccc;
+  image-rendering: pixelated;
+}
+
+    #app {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas {
+      width: min(calc(100vw - 8px), calc(100vh * (16/9) - 8px));
+      aspect-ratio: 16/9;
+    }
+    </style>
+  </head>
+  <body>
+    <div id='app'></div>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        Space(document.getElementById('app'))
+      })
+    </script>
+  <script  src="main.min.js"></script>
+</body>
+</html>
