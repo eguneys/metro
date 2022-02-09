@@ -68,6 +68,8 @@ class Anim {
 
 
   draw(play: Play, x: number, y: number, facing_x: number) {
+    x = Math.round(x)
+    y = Math.round(y)
     play.draw(this.quad, x + (facing_x < 0 ? this.f_w : 0), y, 0, facing_x)
   }
 
@@ -505,9 +507,10 @@ class AllMetro extends IMetro {
 
     if (this.t_jump > 0) {
       body.force.y -= i_y * 0.02 * (this.t_jump / ticks.lengths) * (1 - this.t_jump / ticks.lengths)
+
+      this.t_jump = appr(this.t_jump, 0, dt)
     }
 
-    this.t_jump = appr(this.t_jump, 0, dt)
 
 
     if (this.sensor_right.right > 0) {
@@ -635,6 +638,7 @@ class AllMetro extends IMetro {
     } else if (this.anim_arms.frame === 5) {
       arms_off_y = -8
     }
+
     this.anim_arms.draw(this.play, x, y + arms_off_y, this.facing_x)
 
     //this.sensor_draw_up(this.sensor_up)
