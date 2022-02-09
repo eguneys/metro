@@ -116,6 +116,7 @@ class BodyAlign {
   x: number
   y: number
 
+  ialign_y_time: number
   ialign_y: number
   moving_y0: boolean
   
@@ -177,8 +178,9 @@ class BodyAlign {
     this.ialign_y = 0
   }
 
-  force_smooth_y() {
-    this.ialign_y = ticks.five
+  force_smooth_y(time: number = ticks.five) {
+    this.ialign_y_time = time
+    this.ialign_y = this.ialign_y_time
   }
 
   update(dt: number, dt0: number) {
@@ -203,16 +205,17 @@ class BodyAlign {
       if (this.moving_y0 === this.moving_y) {
         this.y = this.desired_y
       } else {
-        this.ialign_y = ticks.five
+        this.ialign_y_time = ticks.five
+        this.ialign_y = this.ialign_y_time
       }
     } else {
     }
 
     if (this.ialign_y > 0) {
-      this.y = lerp(this.y, this.desired_y, 1.0 - this.ialign_y / ticks.five)
+      this.y = lerp(this.y, this.desired_y, 1.0 - this.ialign_y / this.ialign_y_time)
+      this.ialign_y = appr(this.ialign_y, 0, dt)
     }
 
-    this.ialign_y = appr(this.ialign_y, 0, dt)
 
     this.moving_y0 = this.moving_y
 
@@ -419,14 +422,21 @@ class AllMetro extends IMetro {
       }
 
 
-      this.grid.set(i, 10, true)
-      this.grid.set(i, 9, true)
       this.grid.set(i, 13, true)
       this.grid.set(i, 14, true)
+
+
+      if (i < 5) {
+        this.grid.set(6 + i, 30, true)
+      }
     }
 
-    for (let i = 0; i < 4; i++) {
-      this.grid.set(6 + i, 30, true)
+    for (let i = 0; i < 40; i++) {
+      if (i < 5) {
+        this.grid.set(i + 60, 13, false)
+        this.grid.set(i + 60, 14, false)
+      }
+
     }
 
     this.body = body_make({y0: 30 * 4, y: 30 * 4, air_friction: 0.8})
@@ -436,6 +446,9 @@ class AllMetro extends IMetro {
     this.sensor = new Sensor(this.grid, this.body, 6, 20)
     this.sensor_right = new Sensor(this.grid, this.body, 12, 10)
     this.sensor_up = new Sensor(this.grid, this.body, 6, 0)
+
+    this.sensor_up_hung = new Sensor(this.grid, this.body, 6, -8)
+
 
     this.sensor_l = new Sensor(this.grid, this.align, 9, 20)
     this.sensor_lo = new Sensor(this.grid, this.align, 12, 20)
@@ -449,6 +462,8 @@ class AllMetro extends IMetro {
 
   max_v: number = 0
   t_jump: number = 0
+
+  t_ledge_up0: number = 0
 
   update(dt: number, dt0: number) {
 
@@ -504,11 +519,34 @@ class AllMetro extends IMetro {
       }
     }
 
+    if (this.sensor_up_hung.down < 8) {
+      body.y += this.sensor_up_hung.down
+      body.y0 = body.y
+      body.force.y = 0
+      body.x0 = body.x
+      body.force.x = 0
+
+      if (this.t_ledge_up0 === 0) {
+        this.t_ledge_up0 = ticks.lengths
+      }
+    }
+
     let before = this.sensor_up.up
     body_update(body, dt, dt0)
     
     body.force.x = 0
     body.force.y = 0
+
+    if (this.t_ledge_up0 > 0) {
+      this.t_ledge_up0 = appr(this.t_ledge_up0, 0, dt)
+
+      if (this.t_ledge_up0 === 0) {
+        body.y -= 8 + 20 
+        body.y0 = body.y
+        this.align.force_smooth_y(ticks.lengths) 
+      }
+    }
+
 
     if (this.sensor_right.right < 0) {
       body.x += this.sensor_right.right
@@ -564,31 +602,44 @@ class AllMetro extends IMetro {
     //this.play.draw(this.q_player, x, y)
     this.anim.draw(this.play, x, y, this.facing_x)
 
+    //this.sensor_draw_up(this.sensor_up)
+    this.sensor_draw_down(this.sensor)
+    this.sensor_draw_right(this.sensor_right)
 
-    let { up } = this.sensor_up
+    
+    this.sensor_draw_down(this.sensor_up_hung)
 
-    if (up < 0) {
-      this.play.draw(this.q_red, this.sensor_up.x, this.sensor_up.y + up, 0, 1, -up)
-    } else {
-      this.play.draw(this.q_red, this.sensor_up.x, this.sensor_up.y - up - 2, 0, 1, up + 2)
-    }
+  }
 
 
-    let { down } = this.sensor
-
-    if (down < 0) {
-      this.play.draw(this.q_red, this.sensor.x, this.sensor.y + down, 0, 1, -down)
-    } else {
-      this.play.draw(this.q_red, this.sensor.x, this.sensor.y - 2, 0, 1, down + 2)
-    }
-
-    let { right } = this.sensor_right
+  sensor_draw_right(sensor: Sensor) {
+    let { right } = sensor
 
 
     if (right < 0) {
-      this.play.draw(this.q_red, this.sensor_right.x + right, this.sensor_right.y, 0, -right, 1)
+      this.play.draw(this.q_red, sensor.x + right, sensor.y, 0, -right, 1)
     } else {
-      this.play.draw(this.q_red, this.sensor_right.x - 2, this.sensor_right.y, 0, right + 2, 1)
+      this.play.draw(this.q_red, sensor.x - 2, sensor.y, 0, right + 2, 1)
+    }
+  }
+
+  sensor_draw_down(sensor: Sensor) {
+    let { down } = sensor
+
+    if (down < 0) {
+      this.play.draw(this.q_red, sensor.x, sensor.y + down, 0, 1, -down)
+    } else {
+      this.play.draw(this.q_red, sensor.x, sensor.y - 2, 0, 1, down + 2)
+    }
+  }
+
+  sensor_draw_up(sensor: Sensor) {
+    let { up } = sensor
+
+    if (up < 0) {
+      this.play.draw(this.q_red, sensor.x, sensor.y + up, 0, 1, -up)
+    } else {
+      this.play.draw(this.q_red, sensor.x, sensor.y - up - 2, 0, 1, up + 2)
     }
   }
 }
