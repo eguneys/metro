@@ -302,6 +302,40 @@ class Sensor {
   }
 
 
+  get up_extend() {
+    let { x, y, size } = this
+
+    for (let i = 1; i < size; i++) {
+      let tile = this.grid.get_world(x, y - i)
+      if (tile) {
+        return i
+      }
+    }
+    return size 
+  }
+
+  get up_regress() {
+    let { x, y, size } = this
+
+    for (let i = 1; i < size; i++) {
+      let tile = this.grid.get_world(x, y + i)
+      if (!tile) {
+        return 1-i
+      }
+    }
+    return -size 
+  }
+
+  get up() {
+    let { x, y } = this
+    let tile = this.grid.get_world(x, y)
+    if (!tile) {
+      return this.up_extend
+    }
+    return this.up_regress
+  }
+
+
   constructor(readonly grid: Grid,
     readonly body: Vec2,
     readonly ox: number,
@@ -322,8 +356,8 @@ class AllMetro extends IMetro {
   grid!: Grid
 
   sensor!: Sensor
-
   sensor_right!: Sensor
+  sensor_up!: Sensor
 
   sensor_l!: Sensor
   sensor_lo!: Sensor
@@ -361,6 +395,7 @@ class AllMetro extends IMetro {
 
 
     for (let i = 0; i < 80; i++) {
+      this.grid.set(i, 42, true)
       this.grid.set(i, 41, true)
       this.grid.set(i+40, 40, true)
       this.grid.set(i+42, 39, true)
@@ -382,6 +417,12 @@ class AllMetro extends IMetro {
         this.grid.set(54, 31+i, true)
         this.grid.set(i+54, 31, true)
       }
+
+
+      this.grid.set(i, 10, true)
+      this.grid.set(i, 9, true)
+      this.grid.set(i, 13, true)
+      this.grid.set(i, 14, true)
     }
 
     for (let i = 0; i < 4; i++) {
@@ -393,6 +434,8 @@ class AllMetro extends IMetro {
     this.align = new BodyAlign(this.body, 4)
 
     this.sensor = new Sensor(this.grid, this.body, 6, 20)
+    this.sensor_right = new Sensor(this.grid, this.body, 12, 10)
+    this.sensor_up = new Sensor(this.grid, this.body, 6, 0)
 
     this.sensor_l = new Sensor(this.grid, this.align, 9, 20)
     this.sensor_lo = new Sensor(this.grid, this.align, 12, 20)
@@ -401,10 +444,10 @@ class AllMetro extends IMetro {
     this.sensor_ho = new Sensor(this.grid, this.align, 0, 20)
 
 
-    this.sensor_right = new Sensor(this.grid, this.align, 12, 10)
 
   }
 
+  max_v: number = 0
   t_jump: number = 0
 
   update(dt: number, dt0: number) {
@@ -443,6 +486,7 @@ class AllMetro extends IMetro {
 
     this.t_jump = appr(this.t_jump, 0, dt)
 
+
     if (this.sensor_right.right > 0) {
       body.force.x += i_x * 0.001
     } else {
@@ -460,6 +504,7 @@ class AllMetro extends IMetro {
       }
     }
 
+    let before = this.sensor_up.up
     body_update(body, dt, dt0)
     
     body.force.x = 0
@@ -469,6 +514,12 @@ class AllMetro extends IMetro {
       body.x += this.sensor_right.right
       body.x0 = body.x
       //this.align.force_smooth_x()
+    }
+
+    if (this.sensor_up.up < 0) {
+      body.y -= this.sensor_up.up
+      body.y0 = body.y
+      this.align.force_smooth_y()
     }
 
     if (this.sensor.down < 0) {
@@ -512,6 +563,16 @@ class AllMetro extends IMetro {
 
     //this.play.draw(this.q_player, x, y)
     this.anim.draw(this.play, x, y, this.facing_x)
+
+
+    let { up } = this.sensor_up
+
+    if (up < 0) {
+      this.play.draw(this.q_red, this.sensor_up.x, this.sensor_up.y + up, 0, 1, -up)
+    } else {
+      this.play.draw(this.q_red, this.sensor_up.x, this.sensor_up.y - up - 2, 0, 1, up + 2)
+    }
+
 
     let { down } = this.sensor
 
