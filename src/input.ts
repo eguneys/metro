@@ -2,6 +2,16 @@ import { ticks } from './shared'
 
 export default class Input {
 
+
+  get left() {
+    return this.btn('left')
+  }
+
+  get right() {
+    return this.btn('right')
+  }
+
+
   _btn = new Map()
 
   private press = (key: string) => {

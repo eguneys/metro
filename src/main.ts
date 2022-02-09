@@ -414,10 +414,13 @@ class AllMetro extends IMetro {
     let { body, align, gravity } = this
 
     let i_x = 0
-    if (this.input.btn('right') !== 0) {
+    let { left, right } = this.input
+    if (left > 0 && right > 0) {
+      i_x = left < right ? -1 : 1
+    } else if (right !== 0) {
       i_x = 1
       this.facing_x = 1
-    } else if (this.input.btn('left') !== 0) {
+    } else if (left !== 0) {
       i_x = -1
       this.facing_x = -1
     }
