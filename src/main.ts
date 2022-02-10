@@ -115,6 +115,10 @@ class GridBuilder {
     return Math.floor(this.w / 2)
   }
 
+  get qw() {
+    return Math.floor(this.w / 4)
+  }
+
 
   get h() {
     return this.grid.height
@@ -128,22 +132,36 @@ class GridBuilder {
     return this.h - 2
   }
 
+  get _short() {
+    return 4
+  }
+
 
   constructor(readonly grid: Grid) {}
 
   init() {
 
     this.floor(0, this.bottom, this.w)
-    this.floor(this.hw, this.bottom - 4, this.hw)
+    this.floor(this.hw, this.bottom - 2, this.hw)
+    this.floor(this.hw + this.qw, this.bottom - 8, this._short)
 
     return this
   }
 
-  floor(x: number, y: number, length: number) {
+  _line(x: number, y: number, length: number) {
     for (let i = 0; i < length; i++) {
       this.grid.set(x + i, y, true)
-      this.grid.set(x + i, y+1, true)
     }
+  }
+
+  stairs(x: number, y: number, steps: number, facing: number = 1) {
+    for (let i = 0; i < steps; i++) {
+    }
+  }
+
+  floor(x: number, y: number, length: number) {
+    this._line(x, y, length)
+    this._line(x, y+1, length)
   }
 
 }
@@ -198,7 +216,7 @@ class BodyAlign {
   get moving_y(): boolean { 
     let { body, size } = this
 
-    return Math.abs(body.y - body.y0) > size * 0.01
+    return Math.abs(body.y - body.y0) > size * 0.125
   }
 
   get desired_y(): number {
@@ -219,7 +237,7 @@ class BodyAlign {
   get moving_x(): boolean { 
     let { body, size } = this
 
-    return Math.abs(body.x - body.x0) > size * 0.01
+    return Math.abs(body.x - body.x0) > size * 0.125
   }
 
   get desired_x(): number {
@@ -644,7 +662,7 @@ class Player extends IMetro {
     }
 
     if (this.sensor_left_right.a_front < 0) {
-      body.x += this.sensor_left_right.a_front
+      body.x += this.facing * this.sensor_left_right.a_front
       body.x0 = body.x
       //this.align.force_smooth_x()
     }
