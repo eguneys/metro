@@ -151,6 +151,9 @@ class GridBuilder {
     this.floor(0, this.bottom - 16, this.hw)
     this.floor(0, this.bottom - 19, this.hw - 10)
 
+    this.floor(this.qw, 6, this.hw)
+    this.floor(0, 6, this.qw - 4)
+
     return this
   }
 
@@ -582,6 +585,7 @@ class Player extends IMetro {
     let { left, right } = this.input
     if (left > 0 && right > 0) {
       i_x = left < right ? -1 : 1
+      this.facing_x = i_x
     } else if (right !== 0) {
       i_x = 1
       this.facing_x = 1
@@ -612,7 +616,7 @@ class Player extends IMetro {
 
     body.force.x += i_x * 0.001
 
-    if (Math.abs(body.vx) > 4 * 0.125) {
+    if (Math.abs(body.vx) > 4 * 0.2) {
       if (this.t_life % ticks.lengths < ticks.three) {
         body.force.y -= gravity.y *1.2 
       }
@@ -697,18 +701,23 @@ class Player extends IMetro {
 
     this.align.update(dt, dt0)
 
-    let { front: hung_pre_front } = this.sensor_up_hung_pre
+    let { back: hung_pre_back,
+      front: hung_pre_front } = this.sensor_up_hung_pre
 
-    if (hung_pre_front.down < 0) {
-      this.anim_arms.frame = 1
-    } else if (hung_pre_front.down < 4) {
-      this.anim_arms.frame = 2
-    } else if (hung_pre_front.down < 6) {
-      this.anim_arms.frame = 3
-    } else if (hung_pre_front.down < 12) {
-      this.anim_arms.frame = 4
-    } else if (this.t_ledge_up > ticks.lengths) {
-      this.anim_arms.frame = 5
+    if (this.t_ledge_up !== 0 || hung_pre_back.down > 12) {
+      if (hung_pre_front.down < 0) {
+        this.anim_arms.frame = 1
+      } else if (hung_pre_front.down < 4) {
+        this.anim_arms.frame = 2
+      } else if (hung_pre_front.down < 6) {
+        this.anim_arms.frame = 3
+      } else if (hung_pre_front.down < 12) {
+        this.anim_arms.frame = 4
+      } else if (this.t_ledge_up > ticks.lengths) {
+        this.anim_arms.frame = 5
+      } else {
+        this.anim_arms.frame = 0
+      }
     } else {
       this.anim_arms.frame = 0 
     }
@@ -763,7 +772,7 @@ class Player extends IMetro {
 
     this.anim_arms.draw(this.play, x, y + arms_off_y, this.facing_x)
 
-    this.sensor_draw_up(this.sensor_up)
+    //this.sensor_draw_up(this.sensor_up)
     //this.sensor_draw_down(this.sensor_up_hung_pre.front)
     //this.sensor_draw_down(this.sensor_up_hung_pre.back)
     //this.sensor_draw_right(this.sensor_left_right.front)
