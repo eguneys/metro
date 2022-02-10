@@ -142,10 +142,14 @@ class GridBuilder {
   init() {
 
     this.floor(0, this.bottom, this.w)
-    this.floor(this.hw, this.bottom - 2, this.hw)
-    this.floor(this.hw + this.qw, this.bottom - 8, this._short)
 
     this.box(this.qw, this.bottom - 4, 4)
+    this.box(this.qw + 4, this.bottom - 2, 2)
+
+    this.stairs(this.hw, this.bottom - 1, 16)
+    
+    this.floor(0, this.bottom - 16, this.hw)
+    this.floor(0, this.bottom - 19, this.hw - 10)
 
     return this
   }
@@ -158,6 +162,7 @@ class GridBuilder {
 
   stairs(x: number, y: number, steps: number, facing: number = 1) {
     for (let i = 0; i < steps; i++) {
+      this._line(x + 2 * i * facing, y - i, 4)
     }
   }
 
@@ -606,6 +611,12 @@ class Player extends IMetro {
     }
 
     body.force.x += i_x * 0.001
+
+    if (Math.abs(body.vx) > 4 * 0.125) {
+      if (this.t_life % ticks.lengths < ticks.three) {
+        body.force.y -= gravity.y *1.2 
+      }
+    }
 
     if (this.sensor_down.down > 0) {
       body.force.x += gravity.x

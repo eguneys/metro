@@ -6,6 +6,7 @@
 - [ ] Incremental stats
 
 - [ ] Collision shader
+- [ ] Synthesize sound
 
 ## Fix
 
@@ -13,5 +14,6 @@
 
 ## Ideas
 
+* Stamina
 * Shifting platforms into new levels
 * Slow time to catch bullets
