@@ -86,8 +86,8 @@ class Anim {
 
 
   draw(play: Play, x: number, y: number, facing_x: number = 1) {
-    x = Math.round(x)
-    y = Math.round(y)
+    x = Math.floor(x)
+    y = Math.floor(y)
     play.draw(this.quad, x + (facing_x < 0 ? this.f_w : 0), y, 0, facing_x)
   }
 

@@ -7,6 +7,9 @@
 
 - [ ] Collision shader
 
+## Fix
+
+- [+] Edge push stutter
 
 ## Ideas
 
