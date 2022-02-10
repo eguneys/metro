@@ -3,8 +3,8 @@ export type Vec2 = {
   y: number
 }
 
-const v_zero = vec(0, 0)
-const v_unit = vec(1, 1)
+const v_zero = () => vec(0, 0)
+const v_unit = () => vec(1, 1)
 
 export function vec(x: number, y: number) {
   return { x, y }
@@ -27,7 +27,7 @@ export type Body = {
 }
 
 const defaults_body = {
-  force: v_zero,
+  force: v_zero(),
   mass: 1,
   air_friction: 0.1,
   x: 0,
@@ -45,7 +45,11 @@ export function body_make(opts: Partial<Body>): Body {
 function merge(base: any, extend: any) {
   for (let key in base) {
     if (!extend[key]) {
-      extend[key] = base[key]
+      if (typeof base[key] === 'object') {
+        extend[key] = merge(base[key], {})
+      } else {
+        extend[key] = base[key]
+      }
     }
   }
   return extend

@@ -29,18 +29,36 @@ abstract class IMetro {
   get input(): Input { return this.ctx.input }
 
 
+  t_life!: number
+
   q_dark: Quad = Quad.make(this.a, 0, 0, 1, 1)
   q_red: Quad = Quad.make(this.a, 4, 0, 1, 1)
   q_tile: Quad = Quad.make(this.a, 0, 16, 4, 4)
   q_player: Quad = Quad.make(this.a, 16, 16, 12, 20)
 
-  constructor(readonly ctx: Context) {
-    this.init()
+  constructor(readonly ctx: Context) {}
+
+  init(...args: any[]): this {
+    
+    this.t_life = 0
+
+    this._init(...args)
+    return this
   }
 
-  abstract init(): void;
-  abstract update(dt: number, dt0: number): void;
-  abstract draw(): void;
+  update(dt: number, dt0: number) {
+    this.t_life += dt
+    this._update(dt, dt0)
+  }
+  
+  draw() {
+    this._draw()
+  }
+
+  abstract _init(...args: any[]): void;
+  abstract _update(dt: number, dt0: number): void;
+  abstract _draw(): void;
+
 
 }
 
@@ -67,7 +85,7 @@ class Anim {
   }
 
 
-  draw(play: Play, x: number, y: number, facing_x: number) {
+  draw(play: Play, x: number, y: number, facing_x: number = 1) {
     x = Math.round(x)
     y = Math.round(y)
     play.draw(this.quad, x + (facing_x < 0 ? this.f_w : 0), y, 0, facing_x)
@@ -348,14 +366,12 @@ class Sensor {
     readonly oy: number) {}
 }
 
-class AllMetro extends IMetro {
+class Player extends IMetro {
 
 
   anim!: Anim
   anim_arms!: Anim
 
-
-  elapsed!: number
 
   gravity!: Vec2
   body!: Body
@@ -393,12 +409,10 @@ class AllMetro extends IMetro {
     return this.facing_x < 0 ? this.sensor_lo : this.sensor_ho
   }
 
-  init() {
+  _init() {
 
     this.anim = new Anim(this.a, 0, 48, 12, 20)
     this.anim_arms = new Anim(this.a, 64, 48, 12, 20)
-
-    this.elapsed = 0
 
     this.gravity = vec(0, 0.001)
 
@@ -475,9 +489,7 @@ class AllMetro extends IMetro {
 
   t_ledge_up0: number = 0
 
-  update(dt: number, dt0: number) {
-
-    this.elapsed += dt
+  _update(dt: number, dt0: number) {
 
     let { body, align, gravity } = this
 
@@ -611,7 +623,7 @@ class AllMetro extends IMetro {
     }
   }
 
-  draw() {
+  _draw() {
     this.play.draw(this.q_dark, 0, 80, 0, 10, 2)
 
     for (let i = 0; i < this.grid.height; i++) {
@@ -683,6 +695,86 @@ class AllMetro extends IMetro {
   }
 }
 
+abstract class GMetro extends IMetro {
+
+  constructor(ctx: Context, readonly group: Array<GMetro>) {
+    super(ctx)
+  }
+
+  init(...args: any[]) {
+    super.init(...args)
+    this.group.push(this)
+    return this
+  }
+
+  remove() {
+    this.group.splice(this.group.indexOf(this), 1)
+  }
+}
+
+class Bullet extends GMetro {
+
+  anim!: Anim
+  body!: Body
+
+  _init(x: number, y: number) {
+
+    this.anim = new Anim(this.a, 32, 0, 4, 4)
+
+    this.body = body_make({ x0: x, y0: y, x, y, mass: 0.5 })
+  }
+
+  _update(dt: number, dt0: number) {
+    if (this.t_life > ticks.seconds) {
+      this.remove()
+      return 
+    }
+
+    this.body.force.x = (1 - (this.t_life / ticks.seconds)) * 0.035 * 0.5
+    this.body.force.y = (this.t_life/ ticks.seconds) * 0.0005 * 0.5
+
+    body_update(this.body, dt, dt0)
+
+
+    this.anim.frame = Math.floor((this.t_life % ticks.sixth /  ticks.sixth) * 2) % 2
+  }
+
+  _draw() {
+    let { x, y } = this.body
+    this.anim.draw(this.play, x, y)
+  }
+
+}
+
+class AllMetro extends IMetro {
+
+  bullets!: Array<Bullet>
+  player!: Player
+
+  _init() {
+    this.player = new Player(this.ctx).init()
+
+    this.bullets = []
+  }
+
+  _update(dt: number, dt0: number) {
+
+    if (this.t_life % ticks.seconds <= dt) {
+      new Bullet(this.ctx, this.bullets).init(0, Math.random() * 180)
+    }
+
+    this.player.update(dt, dt0)
+
+    this.bullets.forEach(_ => _.update(dt, dt0))
+  }
+
+
+  _draw() {
+    this.player.draw()
+    this.bullets.forEach(_ => _.draw())
+  }
+
+}
 
 
 export default function app(element: HTMLElement) {
@@ -699,7 +791,7 @@ export default function app(element: HTMLElement) {
       image
     }
 
-    let metro = new AllMetro(ctx)
+    let metro = new AllMetro(ctx).init()
 
     let fixed_dt = 1000/60
     let timestamp0: number | undefined,
