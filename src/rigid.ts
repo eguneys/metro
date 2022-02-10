@@ -18,6 +18,8 @@ export type Body = {
   force: Vec2,
   mass: number,
   air_friction: number,
+  t_scale: number,
+  t_scale0: number,
   x: number,
   y: number,
   x0: number,
@@ -35,7 +37,9 @@ const defaults_body = {
   x0: 0,
   y0: 0,
   vx: 0,
-  vy: 0
+  vy: 0,
+  t_scale: 1,
+  t_scale0: 1
 }
 
 export function body_make(opts: Partial<Body>): Body {
@@ -67,11 +71,18 @@ export function body_update(body: Body, dt: number, dt0: number) {
 
   let { air_friction } = body
 
+  let { t_scale, t_scale0 } = body
+
+  dt *= t_scale
+  dt0 *= t_scale0
+
   let v0_x = x - x0,
     v0_y = y - y0
 
   let new_vx = v0_x * air_friction * dt / dt0 + a.x * dt * (dt + dt0) / 2,
     new_vy = v0_y * air_friction * dt / dt0 + a.y * dt * (dt + dt0) / 2
+
+ body.t_scale0 = body.t_scale 
 
   let new_x0 = x,
     new_y0 = y,

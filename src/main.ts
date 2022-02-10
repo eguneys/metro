@@ -105,6 +105,49 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
 }
 
+class GridBuilder {
+
+  get w() {
+    return this.grid.width
+  }
+
+  get hw() {
+    return Math.floor(this.w / 2)
+  }
+
+
+  get h() {
+    return this.grid.height
+  }
+
+  get hh() {
+    return Math.floor(this.h / 2)
+  }
+
+  get bottom() {
+    return this.h - 2
+  }
+
+
+  constructor(readonly grid: Grid) {}
+
+  init() {
+
+    this.floor(0, this.bottom, this.w)
+    this.floor(this.hw, this.bottom - 4, this.hw)
+
+    return this
+  }
+
+  floor(x: number, y: number, length: number) {
+    for (let i = 0; i < length; i++) {
+      this.grid.set(x + i, y, true)
+      this.grid.set(x + i, y+1, true)
+    }
+  }
+
+}
+
 class Grid {
   data: Array<boolean>
 
@@ -242,7 +285,40 @@ class BodyAlign {
 
 
   }
-} 
+}
+
+type HasFacing = {
+  facing: number
+}
+
+class Facing {
+
+
+  get facing(): number {
+    return this.has_facing.facing
+  }
+
+  get front(): Sensor {
+    return this.facing < 0 ? this.left : this.right
+  }
+
+  get back(): Sensor {
+    return this.facing < 0 ? this.right : this.left
+  }
+
+  get a_front(): number {
+    return this.facing < 0 ? this.left.left : this.right.right
+  }
+
+  get a_back(): number {
+    return this.facing < 0 ? this.right.right : this.left.left
+  }
+
+  constructor(readonly has_facing: HasFacing, 
+    readonly left: Sensor,
+    readonly right: Sensor) {}
+
+}
 
 class Sensor {
 
@@ -256,6 +332,40 @@ class Sensor {
 
   get y() {
     return Math.floor(this.body.y + this.oy)
+  }
+
+
+  get left_extend() {
+    let { x, y, size } = this
+
+    for (let i = 1; i < size; i++) {
+      let tile = this.grid.get_world(x - i, y)
+      if (tile) {
+        return i
+      }
+    }
+    return size 
+  }
+
+  get left_regress() {
+    let { x, y, size } = this
+
+    for (let i = 1; i < size; i++) {
+      let tile = this.grid.get_world(x + i, y)
+      if (!tile) {
+        return 1-i
+      }
+    }
+    return -size 
+  }
+
+  get left() {
+    let { x, y } = this
+    let tile = this.grid.get_world(x, y)
+    if (!tile) {
+      return this.left_extend
+    }
+    return this.left_regress
   }
 
 
@@ -378,36 +488,22 @@ class Player extends IMetro {
   align!: BodyAlign
   grid!: Grid
 
-  sensor!: Sensor
-  sensor_right!: Sensor
+  builder!: GridBuilder
+
   sensor_up!: Sensor
+  sensor_down!: Sensor
+  sensor_left_right!: Facing
 
-  sensor_up_hung!: Sensor
-  sensor_up_hung_pre!: Sensor
+  sensor_up_hung!: Facing
+  sensor_up_hung_pre!: Facing
 
-  sensor_l!: Sensor
-  sensor_lo!: Sensor
-  sensor_h!: Sensor
-  sensor_ho!: Sensor
 
+  sensor_hl!: Facing
+  sensor_hlo!: Facing
 
   facing_x!: number
+  get facing(): number { return this.facing_x }
 
-  get sensor_f(): Sensor {
-    return this.facing_x < 0 ? this.sensor_h: this.sensor_l
-  }
-
-  get sensor_fo(): Sensor {
-    return this.facing_x < 0 ? this.sensor_ho : this.sensor_lo
-  }
-
-  get sensor_b(): Sensor {
-    return this.facing_x < 0 ? this.sensor_l : this.sensor_h
-  }
-
-  get sensor_bo(): Sensor {
-    return this.facing_x < 0 ? this.sensor_lo : this.sensor_ho
-  }
 
   _init() {
 
@@ -416,71 +512,36 @@ class Player extends IMetro {
 
     this.gravity = vec(0, 0.001)
 
-    this.grid = new Grid(320, 180, 4)
+    this.grid = new Grid(80, 45, 4)
 
-
-    for (let i = 0; i < 80; i++) {
-      this.grid.set(i, 42, true)
-      this.grid.set(i, 41, true)
-      this.grid.set(i+40, 40, true)
-      this.grid.set(i+42, 39, true)
-      this.grid.set(i+44, 38, true)
-
-      this.grid.set(i+60, 30, true)
-      this.grid.set(i+60, 29, true)
-
-      this.grid.set(i+66, 28, true)
-      this.grid.set(i+66, 27, true)
-      this.grid.set(i+66, 26, true)
-
-      if (i < 10) {
-        this.grid.set(i, 38, true)
-        this.grid.set(i + 2, 39, true)
-        this.grid.set(i + 4, 40, true)
-
-
-        this.grid.set(54, 31+i, true)
-        this.grid.set(i+54, 31, true)
-      }
-
-
-      this.grid.set(i, 13, true)
-      this.grid.set(i, 14, true)
-
-
-      if (i < 5) {
-        this.grid.set(6 + i, 30, true)
-      }
-    }
-
-    for (let i = 0; i < 40; i++) {
-      if (i < 5) {
-        this.grid.set(i + 60, 13, false)
-        this.grid.set(i + 60, 14, false)
-      }
-
-    }
+    this.builder = new GridBuilder(this.grid).init()
 
     this.body = body_make({y0: 30 * 4, y: 30 * 4, air_friction: 0.8})
 
     this.align = new BodyAlign(this.body, 4)
 
-    this.sensor = new Sensor(this.grid, this.body, 6, 20)
-    this.sensor_right = new Sensor(this.grid, this.body, 12, 10)
     this.sensor_up = new Sensor(this.grid, this.body, 6, 0)
+    this.sensor_down = new Sensor(this.grid, this.body, 6, 20)
 
-    this.sensor_up_hung = new Sensor(this.grid, this.body, 6, -8)
+    this.sensor_left_right = new Facing(this,
+      new Sensor(this.grid, this.body, 0, 10),
+      new Sensor(this.grid, this.body, 12, 10))
 
+    this.sensor_up_hung = new Facing(this,
+      new Sensor(this.grid, this.body, 2, -8),
+      new Sensor(this.grid, this.body, 10, -8))
 
-    this.sensor_up_hung_pre = new Sensor(this.grid, this.align, 11, -12)
+    this.sensor_up_hung_pre = new Facing(this,
+      new Sensor(this.grid, this.align, 1, -12),
+      new Sensor(this.grid, this.align, 11, -12))
 
-    this.sensor_l = new Sensor(this.grid, this.align, 9, 20)
-    this.sensor_lo = new Sensor(this.grid, this.align, 12, 20)
+    this.sensor_hl = new Facing(this,
+      new Sensor(this.grid, this.align, 3, 20),
+      new Sensor(this.grid, this.align, 9, 20))
 
-    this.sensor_h = new Sensor(this.grid, this.align, 3, 20)
-    this.sensor_ho = new Sensor(this.grid, this.align, 0, 20)
-
-
+    this.sensor_hlo = new Facing(this,
+      new Sensor(this.grid, this.align, 0, 20),
+      new Sensor(this.grid, this.align, 12, 20))
 
   }
 
@@ -488,10 +549,18 @@ class Player extends IMetro {
   t_jump: number = 0
 
   t_ledge_up0: number = 0
+  t_ledge_up: number = 0
 
   _update(dt: number, dt0: number) {
 
     let { body, align, gravity } = this
+
+
+    if (this.input.btn('x') > 0) {
+      body.t_scale = 0.3
+    } else {
+      body.t_scale = 1
+    }
 
     let i_x = 0
     let { left, right } = this.input
@@ -511,29 +580,23 @@ class Player extends IMetro {
       i_y = 1
     }
 
-    if (this.sensor.down === 0) {
+    let t_max = ticks.lengths
+
+    if (this.sensor_down.down === 0) {
       if (this.t_jump === 0 && i_y > 0) {
-        this.t_jump = ticks.lengths
+        this.t_jump = t_max
       }
     }
 
     if (this.t_jump > 0) {
-      body.force.y -= i_y * 0.02 * (this.t_jump / ticks.lengths) * (1 - this.t_jump / ticks.lengths)
+      body.force.y -= i_y * 0.02 * (this.t_jump / t_max) * (1 - this.t_jump / t_max)
 
-      this.t_jump = appr(this.t_jump, 0, dt)
+      this.t_jump = appr(this.t_jump, 0, dt * body.t_scale * body.t_scale)
     }
 
+    body.force.x += i_x * 0.001
 
-
-    if (this.sensor_right.right > 0) {
-      body.force.x += i_x * 0.001
-    } else {
-      if (i_x < 0) {
-        body.force.x += i_x * 0.001
-      }
-    }
-
-    if (this.sensor.down > 0) {
+    if (this.sensor_down.down > 0) {
       body.force.x += gravity.x
       if (body.vy > 0) {
         body.force.y += gravity.y * 3
@@ -542,19 +605,20 @@ class Player extends IMetro {
       }
     }
 
-    if (this.sensor_up_hung.down < 8) {
-      body.y += this.sensor_up_hung.down
+
+    if (this.sensor_up_hung.front.down < 8 &&
+      this.sensor_up_hung.back.down === 16) {
+      body.y += this.sensor_up_hung.front.down
       body.y0 = body.y
       body.force.y = 0
       body.x0 = body.x
-      body.force.x = 0
 
       if (this.t_ledge_up0 === 0) {
         this.t_ledge_up0 = ticks.lengths
       }
     }
 
-    let before = this.sensor_up.up
+
     body_update(body, dt, dt0)
     
     body.force.x = 0
@@ -566,13 +630,21 @@ class Player extends IMetro {
       if (this.t_ledge_up0 === 0) {
         body.y -= 8 + 20 
         body.y0 = body.y
-        this.align.force_smooth_y(ticks.half) 
+        body.x += this.facing * 4
+        body.x0 = body.x
+        this.align.force_smooth_y(ticks.half)
+        this.t_ledge_up = ticks.half
       }
     }
 
 
-    if (this.sensor_right.right < 0) {
-      body.x += this.sensor_right.right
+    if (this.t_ledge_up > 0) {
+      this.t_ledge_up = appr(this.t_ledge_up, 0, dt)
+
+    }
+
+    if (this.sensor_left_right.a_front < 0) {
+      body.x += this.sensor_left_right.a_front
       body.x0 = body.x
       //this.align.force_smooth_x()
     }
@@ -583,30 +655,34 @@ class Player extends IMetro {
       this.align.force_smooth_y()
     }
 
-    if (this.sensor.down < 0) {
-      body.y += this.sensor.down
+    if (this.sensor_down.down < 0) {
+      body.y += this.sensor_down.down
       body.y0 = body.y
       this.align.force_smooth_y()
     }
 
     this.align.update(dt, dt0)
 
-    if (this.sensor_up_hung_pre.down < 0) {
+    let { front: hung_pre_front } = this.sensor_up_hung_pre
+
+    if (hung_pre_front.down < 0) {
       this.anim_arms.frame = 1
-    } else if (this.sensor_up_hung_pre.down < 2) {
+    } else if (hung_pre_front.down < 4) {
       this.anim_arms.frame = 2
-    } else if (this.sensor_up_hung_pre.down < 6) {
+    } else if (hung_pre_front.down < 6) {
       this.anim_arms.frame = 3
-    } else if (this.sensor_up_hung_pre.down < 12) {
+    } else if (hung_pre_front.down < 12) {
       this.anim_arms.frame = 4
-    } else if (this.sensor_up_hung_pre.down < 16) {
+    } else if (this.t_ledge_up > ticks.lengths) {
       this.anim_arms.frame = 5
     } else {
       this.anim_arms.frame = 0 
     }
 
-
-    let { sensor_f, sensor_fo, sensor_bo, sensor_b } = this
+    let sensor_f = this.sensor_hl.front,
+      sensor_fo = this.sensor_hlo.front,
+      sensor_b = this.sensor_hl.back,
+      sensor_bo = this.sensor_hlo.back
 
     if (sensor_f.down > 0 && sensor_bo.down === 0) {
       this.anim.frame = 3
@@ -648,18 +724,15 @@ class Player extends IMetro {
     } else if (this.anim_arms.frame === 4) {
       arms_off_y = -12
     } else if (this.anim_arms.frame === 5) {
-      arms_off_y = -8
+      arms_off_y = -6 + 8 * (this.t_ledge_up/ticks.half) *  (1.0 - this.t_ledge_up / ticks.half)
     }
 
     this.anim_arms.draw(this.play, x, y + arms_off_y, this.facing_x)
 
     //this.sensor_draw_up(this.sensor_up)
-    this.sensor_draw_down(this.sensor)
-    this.sensor_draw_right(this.sensor_right)
-
-    
-    this.sensor_draw_down(this.sensor_up_hung_pre)
-
+    this.sensor_draw_down(this.sensor_up_hung_pre.front)
+    this.sensor_draw_down(this.sensor_up_hung_pre.back)
+    //this.sensor_draw_right(this.sensor_left_right.front)
   }
 
 
@@ -759,8 +832,8 @@ class AllMetro extends IMetro {
 
   _update(dt: number, dt0: number) {
 
-    if (this.t_life % ticks.seconds <= dt) {
-      new Bullet(this.ctx, this.bullets).init(0, Math.random() * 180)
+    if (this.t_life % ticks.sixth <= dt) {
+      //new Bullet(this.ctx, this.bullets).init(0, Math.random() * 180)
     }
 
     this.player.update(dt, dt0)
@@ -813,7 +886,7 @@ export default function app(element: HTMLElement) {
         metro.init()
       }
 
-      if (input.btn('x') > 0) {
+      if (input.btn('e') > 0) {
         if (elapsed++ % 24 === 0) {
           metro.update(dt, dt0)
         }

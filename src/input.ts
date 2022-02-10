@@ -70,6 +70,9 @@ export default class Input {
         case 'z':
           press('z')
           break;
+        case 'e':
+          press('e')
+          break;
       }
     });
 
@@ -95,6 +98,9 @@ export default class Input {
           break;      
         case 'z':
           release('z');
+          break;
+        case 'e':
+          release('e')
           break
       }
     });
