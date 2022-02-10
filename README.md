@@ -1,6 +1,7 @@
 ## TODO
 
-- [ ] Single screen bounds
+- [ ] Keyframe transition animations
+- [+] Single screen bounds
 - [ ] Chronometer
 - [ ] Incremental stats
 

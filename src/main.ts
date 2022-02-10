@@ -102,7 +102,7 @@ function appr(value: number, target: number, by: number) {
 }
 
 function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t
+  return a * (1-t) + b * t
 }
 
 class GridBuilder {
@@ -145,6 +145,8 @@ class GridBuilder {
     this.floor(this.hw, this.bottom - 2, this.hw)
     this.floor(this.hw + this.qw, this.bottom - 8, this._short)
 
+    this.box(this.qw, this.bottom - 4, 4)
+
     return this
   }
 
@@ -162,6 +164,12 @@ class GridBuilder {
   floor(x: number, y: number, length: number) {
     this._line(x, y, length)
     this._line(x, y+1, length)
+  }
+
+  box(x: number, y: number, size: number) {
+    for (let i = 0; i < size; i++) {
+      this._line(x, y + i, size)
+    }
   }
 
 }
@@ -204,53 +212,44 @@ class BodyAlign {
   ialign_x: number
   moving_x0: boolean
 
-
-
-
-  get target_y(): number {
-    let { size, body } = this
-
-    return Math.round(body.y / size) * size
-  }
+  moving0: boolean
 
   get moving_y(): boolean { 
     let { body, size } = this
 
-    return Math.abs(body.y - body.y0) > size * 0.125
+    return Math.abs(body.y - body.y0) > size * 0.01
   }
 
   get desired_y(): number {
 
     let { moving_y, body, size } = this
 
-    return moving_y ? body.y : (body.vy < 0 ? Math.round(body.y / size) : Math.round(body.y / size)) * size
+    return moving_y ? body.y : Math.round(body.y / size) * size
   }
 
-
-
-  get target_x(): number {
-    let { size, body } = this
-
-    return Math.round(body.x / size) * size
-  }
 
   get moving_x(): boolean { 
     let { body, size } = this
 
-    return Math.abs(body.x - body.x0) > size * 0.125
+    return Math.abs(body.x - body.x0) > size * 0.01
+  }
+
+  get moving(): boolean {
+    return this.moving_x || this.moving_y
   }
 
   get desired_x(): number {
 
-    let { moving_x, body, size } = this
-
-    return moving_x ? body.x : (body.vx < 0 ? Math.round(body.x / size) : Math.round(body.x / size)) * size
+    let { moving, body, size } = this
+    return moving ? body.x : Math.round(body.x / size) * size
   }
 
   constructor(readonly body: Body,
     readonly size: number) {
     this.x = this.desired_x
     this.y = this.desired_y
+
+    this.moving0 = this.moving
 
     this.moving_x0 = this.moving_x
     this.ialign_x = 0
@@ -266,31 +265,28 @@ class BodyAlign {
   }
 
   update(dt: number, dt0: number) {
+
     if (this.ialign_x === 0) {
-      if (this.moving_x0 === this.moving_x) {
+      if (this.moving0 === this.moving) {
         this.x = this.desired_x
       } else {
         this.ialign_x = ticks.five
       }
-    } else {
     }
 
     if (this.ialign_x > 0) {
       this.x = lerp(this.x, this.desired_x, 1.0 - this.ialign_x / ticks.five)
+      this.ialign_x = appr(this.ialign_x, 0, dt)
     }
 
-    this.ialign_x = appr(this.ialign_x, 0, dt)
-
-    this.moving_x0 = this.moving_x
 
     if (this.ialign_y === 0) {
-      if (this.moving_y0 === this.moving_y) {
+      if (this.moving0 === this.moving) {
         this.y = this.desired_y
       } else {
         this.ialign_y_time = ticks.five
         this.ialign_y = this.ialign_y_time
       }
-    } else {
     }
 
     if (this.ialign_y > 0) {
@@ -298,10 +294,7 @@ class BodyAlign {
       this.ialign_y = appr(this.ialign_y, 0, dt)
     }
 
-
-    this.moving_y0 = this.moving_y
-
-
+    this.moving0 = this.moving
   }
 }
 
@@ -629,6 +622,7 @@ class Player extends IMetro {
       body.y += this.sensor_up_hung.front.down
       body.y0 = body.y
       body.force.y = 0
+      body.force.x = 0
       body.x0 = body.x
 
       if (this.t_ledge_up0 === 0) {
@@ -677,6 +671,17 @@ class Player extends IMetro {
       body.y += this.sensor_down.down
       body.y0 = body.y
       this.align.force_smooth_y()
+    }
+
+
+    if (body.x <= 0) {
+      body.x = 0
+      body.x0 = 0
+    }
+
+    if (body.x >= 320 - 12) {
+      body.x = 320 - 12
+      body.x0 = 320 - 12
     }
 
     this.align.update(dt, dt0)
@@ -747,9 +752,9 @@ class Player extends IMetro {
 
     this.anim_arms.draw(this.play, x, y + arms_off_y, this.facing_x)
 
-    //this.sensor_draw_up(this.sensor_up)
-    this.sensor_draw_down(this.sensor_up_hung_pre.front)
-    this.sensor_draw_down(this.sensor_up_hung_pre.back)
+    this.sensor_draw_up(this.sensor_up)
+    //this.sensor_draw_down(this.sensor_up_hung_pre.front)
+    //this.sensor_draw_down(this.sensor_up_hung_pre.back)
     //this.sensor_draw_right(this.sensor_left_right.front)
   }
 
