@@ -17,3 +17,9 @@
 * Stamina
 * Shifting platforms into new levels
 * Slow time to catch bullets
+
+
+* Grab carry throw push things
+* Something follows you
+* Shoot pistol bazooka
+* Constrain jump

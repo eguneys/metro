@@ -66,10 +66,15 @@ class Anim {
 
   quads: Array<Quad>;
 
+
+  i_trans: number
+
+  _frame: number
   frame: number 
+  frame0: number
 
   get quad(): Quad {
-    return this.quads[this.frame]
+    return this.quads[this._frame]
   }
 
   constructor(readonly image: HTMLImageElement,
@@ -78,12 +83,34 @@ class Anim {
     readonly f_w: number,
     readonly f_h: number) {
 
-    this.quads = [0, 1, 2, 3, 4, 5, 6, 7].map((_, i) =>
+    this.quads = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((_, i) =>
       Quad.make(image, f_x + i * f_w, f_y, f_w, f_h))
 
+    this._frame = 0
     this.frame = 0
+    this.frame0 = this.frame
+
+    this.i_trans = 0
   }
 
+  update(dt: number, dt0: number) {
+
+    if (this.frame0 !== this.frame) {
+      this._frame = this.frame0 + 5
+      this.i_trans = ticks.five
+    }
+
+    if (this.i_trans > 0) {
+      this.i_trans = appr(this.i_trans, 0, dt)
+
+      if (this.i_trans === 0) {
+        this._frame = this.frame
+      }
+    }
+
+
+    this.frame0 = this.frame
+  }
 
   draw(play: Play, x: number, y: number, facing_x: number = 1) {
     x = Math.floor(x)
@@ -143,8 +170,8 @@ class GridBuilder {
 
     this.floor(0, this.bottom, this.w)
 
-    this.box(this.qw, this.bottom - 4, 4)
-    this.box(this.qw + 4, this.bottom - 2, 2)
+    //this.box(this.qw, this.bottom - 4, 4)
+    //this.box(this.qw + 4, this.bottom - 2, 2)
 
     this.stairs(this.hw, this.bottom - 1, 16)
     
@@ -501,6 +528,8 @@ class Player extends IMetro {
   anim!: Anim
   anim_arms!: Anim
 
+  anim_legs!: Anim
+
 
   gravity!: Vec2
   body!: Body
@@ -520,6 +549,8 @@ class Player extends IMetro {
   sensor_hl!: Facing
   sensor_hlo!: Facing
 
+  sensor_j!: Sensor
+
   facing_x!: number
   get facing(): number { return this.facing_x }
 
@@ -529,7 +560,9 @@ class Player extends IMetro {
     this.anim = new Anim(this.a, 0, 48, 12, 20)
     this.anim_arms = new Anim(this.a, 64, 48, 12, 20)
 
-    this.gravity = vec(0, 0.001)
+    this.anim_legs = new Anim(this.a, 0, 80, 12, 20)
+
+    this.gravity = vec(0, 0.0014)
 
     this.grid = new Grid(80, 45, 4)
 
@@ -562,6 +595,7 @@ class Player extends IMetro {
       new Sensor(this.grid, this.align, 0, 20),
       new Sensor(this.grid, this.align, 12, 20))
 
+    this.sensor_j = new Sensor(this.grid, this.body, 6, 20)
   }
 
   max_v: number = 0
@@ -569,6 +603,9 @@ class Player extends IMetro {
 
   t_ledge_up0: number = 0
   t_ledge_up: number = 0
+
+
+  flip_legs: number = 0
 
   _update(dt: number, dt0: number) {
 
@@ -617,8 +654,8 @@ class Player extends IMetro {
     body.force.x += i_x * 0.001
 
     if (Math.abs(body.vx) > 4 * 0.2) {
-      if (this.t_life % ticks.lengths < ticks.three) {
-        body.force.y -= gravity.y *1.2 
+      if (this.t_life % ticks.lengths < ticks.sixth) {
+        body.force.y -= gravity.y *1.2
       }
     }
 
@@ -722,10 +759,8 @@ class Player extends IMetro {
       this.anim_arms.frame = 0 
     }
 
-    let sensor_f = this.sensor_hl.front,
-      sensor_fo = this.sensor_hlo.front,
-      sensor_b = this.sensor_hl.back,
-      sensor_bo = this.sensor_hlo.back
+    let { front: sensor_f, back: sensor_b } = this.sensor_hl,
+      { front: sensor_fo, back: sensor_bo } = this.sensor_hlo
 
     if (sensor_f.down > 0 && sensor_bo.down === 0) {
       this.anim.frame = 3
@@ -740,6 +775,20 @@ class Player extends IMetro {
     } else {
       this.anim.frame = 0
     }
+
+
+    if (this.align.moving_x) {
+      if (this.sensor_j.down < 3) {
+        this.anim_legs.frame = this.anim_legs.frame === 2 ? 3 : this.anim_legs.frame === 3 || this.anim_legs.frame === 1 ? this.anim_legs.frame : 1
+      } else {
+        this.anim_legs.frame = this.anim_legs.frame === 1 ? 2 : this.anim_legs.frame === 2 || this.anim_legs.frame === 4 ? this.anim_legs.frame : 4
+      }
+    } else {
+      this.anim_legs.frame = 0
+    }
+
+    this.anim_legs.update(dt, dt0)
+    console.log(this.sensor_j.down, this.anim_legs._frame)
   }
 
   _draw() {
@@ -757,7 +806,10 @@ class Player extends IMetro {
     let { x, y } = this.align
 
     //this.play.draw(this.q_player, x, y)
-    this.anim.draw(this.play, x, y, this.facing_x)
+    //this.anim.draw(this.play, x, y, this.facing_x)
+    //
+
+    this.anim_legs.draw(this.play, x, y, this.facing_x)
 
     let arms_off_y = 0
     if (this.anim_arms.frame === 3) {
